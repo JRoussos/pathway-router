@@ -24,11 +24,12 @@
  * @property {number} cacheCapacity
  * @property {number} transitionDuration
  * 
- * @property {function} onStart
- * @property {function} onError
+ * @property {function} onNavigate
+ * @property {function} onLoadingChange
  * @property {function} onBeforeLeave
  * @property {function} onBeforeRender
- * @property {function} onLoadingChange
+ * @property {function} onAfterRender
+ * @property {function} onError
  * 
  */
 
@@ -46,11 +47,12 @@ function Pathway(params) {
         historyStackSize:   10, 
         transitionDuration: 0,
 
-        onStart:            function () {},
-        onError:            function () {},
+        onNavigate:         function () {},
+        onLoadingChange:    function () {},
         onBeforeLeave:      function () {},
         onBeforeRender:     function () {},
-        onLoadingChange:    function () {},
+        onAfterRender:      function () {},
+        onError:            function () {},
     }
     
     Object.assign(this.options, params)
@@ -74,7 +76,7 @@ function Pathway(params) {
  */
 Pathway.prototype.initEvents = function () {
     window.addEventListener('popstate', () => {
-        this.navigate(window.location.href, false)
+        this.navigate(window.location.href, null, false)
     })
 
     window.addEventListener('click', event => {
@@ -100,7 +102,7 @@ Pathway.prototype.initEvents = function () {
         event.stopPropagation()
 
         const state = {...target.dataset}
-        this.navigate(href, true, state)
+        this.navigate(href, state, true)
     })
 
     window.addEventListener('load', () => {
@@ -142,20 +144,20 @@ Pathway.prototype.cacheContainerLinks = function () {
         const href = link.href
 
         if (!this.cache.has(href) && !href.match('mailto:')) {
-            this.fetchLink(href, false)
+            this.fetchLink(href)
         }
     })
 }
 
 /**
- * Requesting the route and waitting for the response 
+ * Performing a GET request to the route and passing the response in the cache
  * 
  * @param {string} url 
  * @param {function} callback 
  * 
  * @private
  */
-Pathway.prototype.fetchLink = function (url, updateHistory, callback) {
+Pathway.prototype.fetchLink = function (url, callback) {
     const request = new Request(url, {
         method: 'GET',
         headers: new Headers({
@@ -176,33 +178,34 @@ Pathway.prototype.fetchLink = function (url, updateHistory, callback) {
     })
     .catch(error => {
         console.warn('(ERROR) Parse document:', error)
-        this.options.onError(this, url)
+        this.options.onError(this, error)
     })
-    .finally(() => {
-        // this.isLoading.state ||= false
-    })
+    // .finally(() => {
+    //     this.isLoading.state ||= false
+    // })
 }
 
 /**
+ * Performing the actual navigation between the routes.
  * 
  * 
  * @param {string} url 
- * @param {boolean} updateHistory 
  * @param {Object} historyState
+ * @param {boolean} updateHistory 
  * 
  * @private 
  */
-Pathway.prototype.navigate = function (url, updateHistory, historyState) {
+Pathway.prototype.navigate = function (url, historyState, updateHistory) {
     if (this.isLoading.state) return
 
-    this.options.onStart(this, url)
+    this.options.onNavigate(this)
     const data = this.cache.get(url)
 
     setTimeout(async () => {
-        this.options.onBeforeLeave(this, url)
+        this.options.onBeforeLeave(this)
         
-        const contentData = data || await this.waitFetch(url, updateHistory)
-        this.updateDocument(contentData, updateHistory, historyState)
+        const contentData = data || await this.waitFetch(url)
+        this.updateDocument(contentData, historyState, updateHistory)
 
     }, this.options.transitionDuration)
 }
@@ -211,12 +214,12 @@ Pathway.prototype.navigate = function (url, updateHistory, historyState) {
  * Update the document with the newly received data and update the router object
  * 
  * @param {CacheState} data 
- * @param {boolean} updateHistory 
  * @param {Object} historyState
+ * @param {boolean} updateHistory 
  * 
  * @private
  */
-Pathway.prototype.updateDocument = function (data, updateHistory, historyState) {
+Pathway.prototype.updateDocument = function (data, historyState, updateHistory) {
     if (updateHistory) {
         window.history.pushState(historyState, null, data.url)
     }
@@ -227,7 +230,7 @@ Pathway.prototype.updateDocument = function (data, updateHistory, historyState) 
     document.title = data.title
 
     this.mutation.observer.observe(this.container.parentElement, { childList: true })
-    this.options.onBeforeRender(this, data.url)
+    this.options.onBeforeRender(this)
     
     this.container.replaceWith(data.content)
 }
@@ -245,6 +248,7 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
         if (mutation.type !== "childList") continue
 
         this.container = mutation.addedNodes[0]
+        this.options.onAfterRender(this)
 
         if (this.options.cacheLinkSelector) {
             this.cacheContainerLinks()
@@ -259,12 +263,15 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
 /**
  * Handles the loading state proxy
  * 
+ * @param {function} callback 
+ * @returns 
+ * 
  * @private
  */
 Pathway.prototype.proxyHandler = function (callback) {
 
     return {
-        set(target, property, value, receiver) {
+        set(target, property, value) {
             if (value === target[property]) return false
 
             target[property] = value
@@ -279,13 +286,12 @@ Pathway.prototype.proxyHandler = function (callback) {
  * Waiting for the fetch to resolve and the data to be cached
  * 
  * @param {string} url 
- * @param {boolean} updateHistory 
  * 
  * @returns {Promise}
  * @private 
  */
-Pathway.prototype.waitFetch = function (url, updateHistory) {
-    return new Promise(resolve => this.fetchLink(url, updateHistory, resolve)).then(url => {
+Pathway.prototype.waitFetch = function (url) {
+    return new Promise(resolve => this.fetchLink(url, resolve)).then(url => {
         return this.__get(url)
     })
 }

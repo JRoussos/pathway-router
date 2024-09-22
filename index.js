@@ -4,17 +4,17 @@ window.pathway = new Pathway({
     historyStackSize: 3,
     // cacheLinkSelector: null,
     // cacheCapacity: 1,
-    onStart: () => {
+    onNavigate: () => {
         document.querySelector(':root').classList.add('fade')
     },
-    onBeforeLeave: (router, url) => {
+    onBeforeLeave: router => {
         // console.log(props, url);
     },
-    onBeforeRender: (router, url) => {
+    onBeforeRender: router => {
         console.log(router.history);
         document.querySelector(':root').classList.remove('fade')
     },
-    onLoadingChange: (state) => {
+    onLoadingChange: state => {
         // console.log(state);
         // document.querySelector(':root').classList.toggle('fade', state)
     }

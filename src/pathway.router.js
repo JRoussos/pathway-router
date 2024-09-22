@@ -41,18 +41,16 @@
 function Pathway(params) {
     this.options = {
         containerSelector: 'body',
-
-        historyStackSize: 10, 
-        cacheCapacity: 10,
         cacheLinkSelector: '[data-preload-link]',
-
+        cacheCapacity:      10,
+        historyStackSize:   10, 
         transitionDuration: 0,
 
-        onStart: function () {},
-        onError: function () {},
-        onBeforeLeave: function () {},
-        onBeforeRender: function () {},
-        onLoadingChange: function () {},
+        onStart:            function () {},
+        onError:            function () {},
+        onBeforeLeave:      function () {},
+        onBeforeRender:     function () {},
+        onLoadingChange:    function () {},
     }
     
     Object.assign(this.options, params)

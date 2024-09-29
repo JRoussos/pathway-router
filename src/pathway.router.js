@@ -18,7 +18,7 @@
  * @typedef PathwayOptions
  * 
  * @property {string} containerSelector
- * @property {string} cacheLinkSelector
+ * @property {string} preloadLinkSelector
  * 
  * @property {number} historyStackSize
  * @property {number} cacheCapacity
@@ -41,18 +41,19 @@
  */
 function Pathway(params) {
     this.options = {
-        containerSelector: 'body',
-        cacheLinkSelector: '[data-preload-link]',
-        cacheCapacity:      10,
-        historyStackSize:   10, 
-        transitionDuration: 0,
+        containerSelector:   'body',
+        preloadLinkSelector: '[data-preload-link]',
+        excludeLinkSelector: '[data-exclude-link]',
+        cacheCapacity:       10,
+        historyStackSize:    10, 
+        transitionDuration:  0,
 
-        onNavigate:         function () {},
-        onLoadingChange:    function () {},
-        onBeforeLeave:      function () {},
-        onBeforeRender:     function () {},
-        onAfterRender:      function () {},
-        onError:            function () {},
+        onNavigate:          function () {},
+        onLoadingChange:     function () {},
+        onBeforeLeave:       function () {},
+        onBeforeRender:      function () {},
+        onAfterRender:       function () {},
+        onError:             function () {},
     }
     
     Object.assign(this.options, params)
@@ -87,6 +88,10 @@ Pathway.prototype.initEvents = function () {
             return
         }
 
+        if (target.matches(this.options.excludeLinkSelector)) {
+            return
+        }
+
         if (href.match('mailto:')) {
             return
         }
@@ -112,7 +117,7 @@ Pathway.prototype.initEvents = function () {
             state: null
         })
 
-        if(this.options.cacheLinkSelector) {
+        if(this.options.preloadLinkSelector) {
             this.cacheContainerLinks()
         }
     })
@@ -129,10 +134,10 @@ Pathway.prototype.initEvents = function () {
  * @private
  */
 Pathway.prototype.cacheContainerLinks = function () {
-    const links = document.body.querySelectorAll(this.options.cacheLinkSelector)
+    const links = document.body.querySelectorAll(this.options.preloadLinkSelector)
 
     const sortWeightedLinks = (a, b) => {
-        const dataAttribute = this.options.cacheLinkSelector.replace(/[\[\]]/g, "")
+        const dataAttribute = this.options.preloadLinkSelector.replace(/[\[\]]/g, "")
 
         const aPreloadWeight = a.getAttribute(dataAttribute)
         const bPreloadWeight = b.getAttribute(dataAttribute)
@@ -187,7 +192,6 @@ Pathway.prototype.fetchLink = function (url, callback) {
 
 /**
  * Performing the actual navigation between the routes.
- * 
  * 
  * @param {string} url 
  * @param {Object} historyState
@@ -250,7 +254,7 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
         this.container = mutation.addedNodes[0]
         this.options.onAfterRender(this)
 
-        if (this.options.cacheLinkSelector) {
+        if (this.options.preloadLinkSelector) {
             this.cacheContainerLinks()
         }
 

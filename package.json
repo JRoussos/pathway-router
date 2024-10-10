@@ -1,6 +1,5 @@
 {
-    "name": "pathway-router",
-    "private": true,
+    "name": "@jroussos/pathway-router",
     "version": "0.1.0",
     "type": "module",
     "main": "src/index.js",
@@ -11,7 +10,11 @@
     },
     "license": "MIT",
     "repository": {
+        "type": "github",
         "url": "https://github.com/JRoussos/pathway-router"
+    },
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com/@JRoussos"
     },
     "scripts": {
         "dev": "vite --host",
@@ -24,7 +27,7 @@
     ],
     "devDependencies": {
         "pathe": "^1.1.2",
-        "vite": "^5.0.8",
-        "vite-plugin-dts": "^4.2.1"
+        "vite": "^5.4.8",
+        "vite-plugin-dts": "^4.2.3"
     }
 }

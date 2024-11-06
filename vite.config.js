@@ -5,16 +5,26 @@ import dts from 'vite-plugin-dts'
 
 export default defineConfig({
     build: {
+        target: "es2019",
         rollupOptions: {
             output: {
                 extend: true,
-                entryFileNames: 'pathway.router.min.js',
+                entryFileNames: 'index.min.js',
             }
         },
         lib: {
             entry: resolve(__dirname, 'src/pathway.router.js'),
-            formats: ['iife'],
+            formats: ['cjs', 'iife'],
             name: 'Pathway',
+            fileName: 'index'
+        }
+    },
+    esbuild: {
+        target: "es2019"
+    },
+    optimizeDeps: {
+        esbuildOptions: {
+            target: "es2019",
         }
     },
     plugins: [

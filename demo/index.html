@@ -1,20 +1,31 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HOME</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>INDEX</title>
 
-    <script src="./dist/pathway.router.min.js" defer></script>
+    <script src="../dist/pathway.router.min.js" defer></script>
     <script src="./index.js" defer></script>
-    
+
     <link rel="stylesheet" type="text/css" href="./style.css" /> 
 </head>
 
 <body>
-    <div class="mainContent">
-        <div style="width: 100%; display: flex; flex-direction: column; align-items:center; justify-content: center;"> 
+    <header>
+        <a data-preload-link="31" href="/page.html">Go to page</a>
+        <a data-preload-link="2" href="/home.html">Go to home</a>
+        <a data-preload-link href="mailto:someone@example.com">Send email</a>
+    </header>
+    <main class="mainContent">
+        <div style="width: 100%; display: flex; align-items:center; flex-direction: column; justify-content: center;"> 
+            <p style="max-width: 800px;">Veniam tempor commodo labore do tempor incididunt sit aliquip magna sit. 
+                Nisi velit eu eu laboris ut anim. Commodo cillum pariatur sit veniam velit in nulla ipsum eu. Ut aute deserunt 
+                incididunt ex ut. Quis mollit labore id aute culpa anim et quis qui. Reprehenderit excepteur culpa nostrud 
+                velit dolor aliqua aliquip incididunt deserunt laboris.
+            </p>
             <p style="max-width: 800px;">Sint reprehenderit duis tempor ipsum aliquip minim. Magna culpa ipsum aliqua irure aliquip officia non
                 nostrud eu quis. Cupidatat pariatur dolor in nostrud incididunt Lorem et pariatur nulla. Non esse elit esse
                 occaecat enim esse anim ea. Sit fugiat ad laboris ut irure. Veniam magna velit ea nulla dolor cillum labore.
@@ -26,9 +37,8 @@
                 mollit occaecat. Laborum elit tempor sunt aute et magna. Tempor esse enim ad laborum pariatur commodo aliqua exercitation commodo 
                 aliqua ut nisi dolore ea. Sunt ea ipsum adipisicing nulla sit veniam magna non ipsum aliqua.
             </p>
-            <p class="anchor" onclick="history.back()">Go back</p>
         </div>
-    </div>
+    <main/>
 </body>
 
 </html>

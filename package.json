@@ -2,7 +2,8 @@
     "name": "@jroussos/pathway-router",
     "version": "0.1.0",
     "type": "module",
-    "main": "src/index.js",
+    "main": "dist/index.min.js",
+    "types": "dist/pathway.router.d.ts",
     "author": {
         "name": "John Roussos",
         "email": "jroussosdev@gmail.com",
@@ -14,12 +15,13 @@
         "url": "https://github.com/JRoussos/pathway-router"
     },
     "publishConfig": {
-        "registry": "https://npm.pkg.github.com/@JRoussos"
+        "registry": "https://npm.pkg.github.com/"
     },
     "scripts": {
         "dev": "vite --host",
         "build": "vite build",
-        "preview": "vite preview"
+        "prepack": "npm run build",
+        "postpack": "npm version patch"
     },
     "keywords": [
         "pathway",
@@ -27,7 +29,7 @@
     ],
     "devDependencies": {
         "pathe": "^1.1.2",
-        "vite": "^5.4.8",
-        "vite-plugin-dts": "^4.2.3"
+        "vite": "^5.4.10",
+        "vite-plugin-dts": "^4.3.0"
     }
 }

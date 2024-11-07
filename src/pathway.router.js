@@ -17,7 +17,7 @@
 /**
  * @typedef PathwayOptions
  * 
- * @property {'exploring'|'walking'} [mode  ]
+ * @property {'router'|'link'} [mode  ]
  * 
  * @property {string} [containerSelector    ]
  * @property {string} [preloadLinkSelector  ]
@@ -44,7 +44,7 @@
  */
 function Pathway(params) {
     this.options = /** @type {PathwayOptions} */ {
-        mode:                'exploring',
+        mode:                'router',
         containerSelector:   'body',
         preloadLinkSelector: '[data-preload-link]',
         excludeLinkSelector: '[data-exclude-link]',
@@ -82,14 +82,22 @@ function Pathway(params) {
 Pathway.prototype.initEvents = function () {
 
     switch (this.options.mode) {
-        case 'exploring':
+        case 'link':
+            window.addEventListener('load', () => {
+                if(this.options.preloadLinkSelector) {
+                    this.cacheContainerLinks()
+                }
+            })
+        break;
+    
+        case 'router': default:
             window.addEventListener('popstate', () => {
                 this.navigate(window.location.href, null, false)
             })
 
             window.addEventListener('click', event => {
-                const target = /**@type HTMLElement */ event.target
-                const href = target.getAttribute('href')
+                const target = /**@type HTMLAnchorElement */ event.target
+                const href = target.href
         
                 if (target.tagName.toLowerCase() !== 'a' || !href) {
                     return
@@ -131,16 +139,6 @@ Pathway.prototype.initEvents = function () {
 
             this.mutation.observer = new MutationObserver((mutationList, observer) => {
                 this.mutationHandler(mutationList, observer)
-            })
-
-        break;
-    
-        case 'walking': default:
-
-            window.addEventListener('load', () => {
-                if(this.options.preloadLinkSelector) {
-                    this.cacheContainerLinks()
-                }
             })
 
         break;
@@ -190,7 +188,7 @@ Pathway.prototype.fetchLink = function (url, callback) {
         })
     })
      
-    this.isLoading.state = true
+    this.isLoading = true
     this.options.onLoadingChange(true)
     
     window.fetch(request).then(async response => {
@@ -207,7 +205,7 @@ Pathway.prototype.fetchLink = function (url, callback) {
         this.options.onError(this, error)
     })
     .finally(() => {
-        this.isLoading.state = false
+        this.isLoading = false
         this.options.onLoadingChange(false)
     })
 }
@@ -218,12 +216,12 @@ Pathway.prototype.fetchLink = function (url, callback) {
  * @param {string} url 
  * @param {Object} historyState
  * @param {boolean} updateHistory 
- * @param {function} callback
+ * @param {function} linkModeCallback
  * 
  * @private 
  */
-Pathway.prototype.navigate = function (url, historyState, updateHistory, callback) {
-    if (this.isLoading.state) return
+Pathway.prototype.navigate = function (url, historyState, updateHistory, linkModeCallback) {
+    if (this.isLoading) return
 
     this.options.onNavigate(this)
     const data = this.cache.get(url)
@@ -232,9 +230,10 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory, callbac
         this.options.onBeforeLeave(this)
         
         const contentData = data || await this.waitFetch(url)
-        this.options.mode === 'exploring' 
+
+        this.options.mode === 'router' 
             ? this.updateDocument(contentData, historyState, updateHistory)
-            : callback(contentData)
+            : linkModeCallback(contentData)
 
     }, this.options.transitionDuration)
 }
@@ -262,17 +261,6 @@ Pathway.prototype.updateDocument = function (data, historyState, updateHistory) 
     this.options.onBeforeRender(this)
     
     this.container.replaceWith(data.content)
-}
-
-/**
- * A click handler to bypass the router and get only the link fetch functionality.
- * It needs to be paired with the routing mode 'walking'.
- * 
- * @param {string} url 
- * @param {function} callback 
- */
-Pathway.prototype.walk = function (url, callback) {
-    this.navigate(url, null, false, callback)
 }
 
 /**

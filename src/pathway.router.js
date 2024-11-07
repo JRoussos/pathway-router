@@ -17,19 +17,20 @@
 /**
  * @typedef PathwayOptions
  * 
- * @property {string} containerSelector
- * @property {string} preloadLinkSelector
+ * @property {string} [containerSelector    ]
+ * @property {string} [preloadLinkSelector  ]
+ * @property {string} [excludeLinkSelector  ]
  * 
- * @property {number} historyStackSize
- * @property {number} cacheCapacity
- * @property {number} transitionDuration
+ * @property {number} [historyStackSize     ]
+ * @property {number} [cacheCapacity        ]
+ * @property {number} [transitionDuration   ]
  * 
- * @property {function} onNavigate
- * @property {function} onLoadingChange
- * @property {function} onBeforeLeave
- * @property {function} onBeforeRender
- * @property {function} onAfterRender
- * @property {function} onError
+ * @property {function} [onNavigate         ]
+ * @property {function} [onLoadingChange    ]
+ * @property {function} [onBeforeLeave      ]
+ * @property {function} [onBeforeRender     ]
+ * @property {function} [onAfterRender      ]
+ * @property {function} [onError            ]
  * 
  */
 
@@ -61,7 +62,7 @@ function Pathway(params) {
     this.history = []
     this.cache = new Map()
 
-    this.isLoading = new Proxy({state: false}, this.proxyHandler(this.options.onLoadingChange))
+    this.isLoading = false,
     this.container = document.querySelector(this.options.containerSelector) || document.body
 
     this.mutation = {observer: null}
@@ -170,7 +171,8 @@ Pathway.prototype.fetchLink = function (url, callback) {
         })
     })
      
-    // this.isLoading.state ||= true
+    this.isLoading.state = true
+    this.options.onLoadingChange(true)
     
     window.fetch(request).then(async response => {
         const html = await response.text()
@@ -185,9 +187,10 @@ Pathway.prototype.fetchLink = function (url, callback) {
         console.warn('(ERROR) Parse document:', error)
         this.options.onError(this, error)
     })
-    // .finally(() => {
-    //     this.isLoading.state ||= false
-    // })
+    .finally(() => {
+        this.isLoading.state = false
+        this.options.onLoadingChange(false)
+    })
 }
 
 /**
@@ -261,28 +264,6 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
         observer.disconnect()
 
         break
-    }
-}
-
-/**
- * Handles the loading state proxy
- * 
- * @param {function} callback 
- * @returns 
- * 
- * @private
- */
-Pathway.prototype.proxyHandler = function (callback) {
-
-    return {
-        set(target, property, value) {
-            if (value === target[property]) return false
-
-            target[property] = value
-            callback(value)
-
-            return true
-        }
     }
 }
 

@@ -2,7 +2,7 @@
     "name": "@jroussos/pathway-router",
     "version": "0.2.1",
     "type": "module",
-    "main": "dist/index.min.js",
+    "main": "dist/pathway-router.cjs",
     "types": "dist/pathway.router.d.ts",
     "author": {
         "name": "John Roussos",

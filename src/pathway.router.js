@@ -17,6 +17,8 @@
 /**
  * @typedef PathwayOptions
  * 
+ * @property {'exploring'|'walking'} [mode  ]
+ * 
  * @property {string} [containerSelector    ]
  * @property {string} [preloadLinkSelector  ]
  * @property {string} [excludeLinkSelector  ]
@@ -41,7 +43,8 @@
  * @param {PathwayOptions} params 
  */
 function Pathway(params) {
-    this.options = {
+    this.options = /** @type {PathwayOptions} */ {
+        mode:                'exploring',
         containerSelector:   'body',
         preloadLinkSelector: '[data-preload-link]',
         excludeLinkSelector: '[data-exclude-link]',
@@ -77,55 +80,71 @@ function Pathway(params) {
  * @private
  */
 Pathway.prototype.initEvents = function () {
-    window.addEventListener('popstate', () => {
-        this.navigate(window.location.href, null, false)
-    })
 
-    window.addEventListener('click', event => {
-        const target = /**@type HTMLElement */ event.target
-        const href = target.getAttribute('href')
+    switch (this.options.mode) {
+        case 'exploring':
+            window.addEventListener('popstate', () => {
+                this.navigate(window.location.href, null, false)
+            })
 
-        if (target.tagName.toLowerCase() !== 'a' || !href) {
-            return
-        }
+            window.addEventListener('click', event => {
+                const target = /**@type HTMLElement */ event.target
+                const href = target.getAttribute('href')
+        
+                if (target.tagName.toLowerCase() !== 'a' || !href) {
+                    return
+                }
+        
+                if (target.matches(this.options.excludeLinkSelector)) {
+                    return
+                }
+        
+                if (href.match('mailto:')) {
+                    return
+                }
+        
+                if(window.location.pathname === href || window.location.href === href) {
+                    event.preventDefault()
+                    event.stopPropagation()
+        
+                    return
+                }
+        
+                event.preventDefault()
+                event.stopPropagation()
+        
+                const state = {...target.dataset}
+                this.navigate(href, state, true)
+            })
+        
+            window.addEventListener('load', () => {
+                this.history.push({
+                    url: window.location.href,
+                    title: document.title,
+                    state: null
+                })
+        
+                if(this.options.preloadLinkSelector) {
+                    this.cacheContainerLinks()
+                }
+            })
 
-        if (target.matches(this.options.excludeLinkSelector)) {
-            return
-        }
+            this.mutation.observer = new MutationObserver((mutationList, observer) => {
+                this.mutationHandler(mutationList, observer)
+            })
 
-        if (href.match('mailto:')) {
-            return
-        }
+        break;
+    
+        case 'walking': default:
 
-        if(window.location.pathname === href || window.location.href === href) {
-            event.preventDefault()
-            event.stopPropagation()
+            window.addEventListener('load', () => {
+                if(this.options.preloadLinkSelector) {
+                    this.cacheContainerLinks()
+                }
+            })
 
-            return
-        }
-
-        event.preventDefault()
-        event.stopPropagation()
-
-        const state = {...target.dataset}
-        this.navigate(href, state, true)
-    })
-
-    window.addEventListener('load', () => {
-        this.history.push({
-            url: window.location.href,
-            title: document.title,
-            state: null
-        })
-
-        if(this.options.preloadLinkSelector) {
-            this.cacheContainerLinks()
-        }
-    })
-
-    this.mutation.observer = new MutationObserver((mutationList, observer) => {
-        this.mutationHandler(mutationList, observer)
-    })
+        break;
+    }
 }
 
 /**
@@ -199,10 +218,11 @@ Pathway.prototype.fetchLink = function (url, callback) {
  * @param {string} url 
  * @param {Object} historyState
  * @param {boolean} updateHistory 
+ * @param {function} callback
  * 
  * @private 
  */
-Pathway.prototype.navigate = function (url, historyState, updateHistory) {
+Pathway.prototype.navigate = function (url, historyState, updateHistory, callback) {
     if (this.isLoading.state) return
 
     this.options.onNavigate(this)
@@ -212,7 +232,9 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory) {
         this.options.onBeforeLeave(this)
         
         const contentData = data || await this.waitFetch(url)
-        this.updateDocument(contentData, historyState, updateHistory)
+        this.options.mode === 'exploring' 
+            ? this.updateDocument(contentData, historyState, updateHistory)
+            : callback(contentData)
 
     }, this.options.transitionDuration)
 }
@@ -240,6 +262,17 @@ Pathway.prototype.updateDocument = function (data, historyState, updateHistory) 
     this.options.onBeforeRender(this)
     
     this.container.replaceWith(data.content)
+}
+
+/**
+ * A click handler to bypass the router and get only the link fetch functionality.
+ * It needs to be paired with the routing mode 'walking'.
+ * 
+ * @param {string} url 
+ * @param {function} callback 
+ */
+Pathway.prototype.walk = function (url, callback) {
+    this.navigate(url, null, false, callback)
 }
 
 /**

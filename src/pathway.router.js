@@ -188,8 +188,13 @@ Pathway.prototype.fetchLink = function (url, callback) {
         })
     })
      
+    if (this.cache.has(url) && callback) {
+        callback(url)
+        return
+    }
+
     this.isLoading = true
-    this.options.onLoadingChange(true)
+    this.options.onLoadingChange(this, true)
     
     window.fetch(request).then(async response => {
         const html = await response.text()
@@ -198,7 +203,7 @@ Pathway.prototype.fetchLink = function (url, callback) {
         const document = parser.parseFromString(html, 'text/html')
         this.cacheResponse(url, document)
 
-        if (callback) callback(url, document)
+        if (callback) callback(url)
     })
     .catch(error => {
         console.warn('(ERROR) Parse document:', error)
@@ -206,7 +211,7 @@ Pathway.prototype.fetchLink = function (url, callback) {
     })
     .finally(() => {
         this.isLoading = false
-        this.options.onLoadingChange(false)
+        this.options.onLoadingChange(this, false)
     })
 }
 
@@ -216,24 +221,19 @@ Pathway.prototype.fetchLink = function (url, callback) {
  * @param {string} url 
  * @param {Object} historyState
  * @param {boolean} updateHistory 
- * @param {function} linkModeCallback
  * 
  * @private 
  */
-Pathway.prototype.navigate = function (url, historyState, updateHistory, linkModeCallback) {
+Pathway.prototype.navigate = function (url, historyState, updateHistory) {
     if (this.isLoading) return
 
-    this.options.onNavigate(this)
-    const data = this.cache.get(url)
+    this.options.onNavigate(this, url)
 
     setTimeout(async () => {
         this.options.onBeforeLeave(this)
         
-        const contentData = data || await this.waitFetch(url)
-
-        this.options.mode === 'router' 
-            ? this.updateDocument(contentData, historyState, updateHistory)
-            : linkModeCallback(contentData)
+        const contentData = await this.waitFetch(url)
+        this.updateDocument(contentData, historyState, updateHistory)
 
     }, this.options.transitionDuration)
 }
@@ -296,10 +296,9 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
  * @returns {Promise}
  * @private 
  */
-Pathway.prototype.waitFetch = function (url) {
-    return new Promise(resolve => this.fetchLink(url, resolve)).then(url => {
-        return this.__get(url)
-    })
+Pathway.prototype.waitFetch = async function (href) {
+    const url = await new Promise(resolve => this.fetchLink(href, resolve));    
+    return this.__get(url);
 }
 
 /**

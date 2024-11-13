@@ -180,7 +180,7 @@ Pathway.prototype.cacheContainerLinks = function () {
  * 
  * @private
  */
-Pathway.prototype.fetchLink = function (url, callback) {
+Pathway.prototype.fetchLink = function (url, resolve, reject) {
     const request = new Request(url, {
         method: 'GET',
         headers: new Headers({
@@ -188,25 +188,35 @@ Pathway.prototype.fetchLink = function (url, callback) {
         })
     })
      
-    if (this.cache.has(url) && callback) {
-        callback(url)
+    if (this.cache.has(url) && resolve) {
+        resolve(url)
         return
     }
 
     this.isLoading = true
     this.options.onLoadingChange(this, true)
+
+    const roundCodeNumber = code => {
+        return Math.trunc(code/100) * 100
+    }
     
     window.fetch(request).then(async response => {
+        if (roundCodeNumber(response.status) !== 200) {
+            throw new Error(`(ERROR) Request failed with status code ${response.status}`)
+        }
+
         const html = await response.text()
         const parser = new DOMParser()
     
         const document = parser.parseFromString(html, 'text/html')
         this.cacheResponse(url, document)
 
-        if (callback) callback(url)
+        if (resolve) resolve(url)
     })
     .catch(error => {
         console.warn('(ERROR) Parse document:', error)
+        if (reject) reject(url)
+        
         this.options.onError(this, error)
     })
     .finally(() => {
@@ -297,7 +307,7 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
  * @private 
  */
 Pathway.prototype.waitFetch = async function (href) {
-    const url = await new Promise(resolve => this.fetchLink(href, resolve));    
+    const url = await new Promise((resolve, reject) => this.fetchLink(href, resolve, reject));    
     return this.__get(url);
 }
 

@@ -1,6 +1,6 @@
 {
     "name": "@jroussos/pathway-router",
-    "version": "0.2.5",
+    "version": "0.2.6",
     "type": "module",
     "main": "dist/pathway-router.cjs",
     "types": "dist/pathway.router.d.ts",

@@ -17,7 +17,7 @@
 /**
  * @typedef PathwayOptions
  * 
- * @property {'router'|'link'} [mode  ]
+ * @property {'router'|'link'|'none'} [mode ]
  * 
  * @property {string} [containerSelector    ]
  * @property {string} [preloadLinkSelector  ]
@@ -82,6 +82,9 @@ function Pathway(params) {
 Pathway.prototype.initEvents = function () {
 
     switch (this.options.mode) {
+        case 'none':
+            break;
+        
         case 'link':
             window.addEventListener('load', () => {
                 if(this.options.preloadLinkSelector) {

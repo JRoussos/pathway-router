@@ -56,8 +56,6 @@
 /**
  * @typedef PathwayOptions
  *
- * @property {'router'|'link'|'none'} [mode ]
- *
  * @property {string} [containerSelector    ]
  * @property {string} [preloadLinkSelector  ]
  * @property {string} [excludeLinkSelector  ]
@@ -67,6 +65,9 @@
  * @property {number} [transitionDuration   ]
  *
  * @property {boolean} [updateRouterHistory ]
+ * @property {boolean} [popstateEvent       ]
+ * @property {boolean} [clickEvent          ]
+ * @property {boolean} [mutationObserver    ]
  *
  * @property {OnNavigateCallback     } [onNavigate      ]
  * @property {OnLoadingChangeCallback} [onLoadingChange ]
@@ -85,7 +86,6 @@
  */
 function Pathway(params) {
     this.options = /** @type {PathwayOptions} */ {
-        mode:                'router',
         containerSelector:   'body',
         preloadLinkSelector: '[data-preload-link]',
         excludeLinkSelector: '[data-exclude-link]',
@@ -93,6 +93,9 @@ function Pathway(params) {
         historyStackSize:    10,
         transitionDuration:  0,
         updateRouterHistory: true,
+        popstateEvent:       true,
+        clickEvent:          true,
+        mutationObserver:    true,
         onNavigate:          function () {},
         onLoadingChange:     function () {},
         onBeforeLeave:       function () {},
@@ -109,7 +112,7 @@ function Pathway(params) {
     this.isLoading = /** @type {Boolean} */ false
     this.container = /** @type {HTMLElement} */ document.querySelector(this.options.containerSelector) || document.body
 
-    this.mutation = /** @type {{observer: MutationObserver|null}}*/ {
+    this.mutation  = /** @type {{observer: MutationObserver|null}}*/ {
         observer: null
     }
 
@@ -124,67 +127,55 @@ function Pathway(params) {
  */
 Pathway.prototype.initEvents = function () {
 
-    switch (this.options.mode) {
-        case 'none':
-            break;
+    if (this.options.popstateEvent) {
+        window.addEventListener('popstate', () => {
+            this.navigate(window.location.href, null, false)
+        })
+    }
 
-        case 'link':
-            window.addEventListener('load', () => {
-                if(this.options.preloadLinkSelector) {
-                    this.cacheContainerLinks()
-                }
-            })
-            break;
+    if (this.options.clickEvent) {
+        window.addEventListener('click', event => {
+            const target    = /**@type HTMLAnchorElement */ event.target
+            const href      = target.href
 
-        case 'router': default:
-            window.addEventListener('popstate', () => {
-                this.navigate(window.location.href, null, false)
-            })
+            if (target.tagName.toLowerCase() !== 'a' || !href) {
+                return
+            }
 
-            window.addEventListener('click', event => {
-                const target = /**@type HTMLAnchorElement */ event.target
-                const href = target.href
+            if (target.matches(this.options.excludeLinkSelector)) {
+                return
+            }
 
-                if (target.tagName.toLowerCase() !== 'a' || !href) {
-                    return
-                }
+            if (href.match('mailto:')) {
+                return
+            }
 
-                if (target.matches(this.options.excludeLinkSelector)) {
-                    return
-                }
+            event.preventDefault()
+            event.stopPropagation()
 
-                if (href.match('mailto:')) {
-                    return
-                }
+            if(window.location.pathname === href || window.location.href === href) {
+                return
+            }
 
-                event.preventDefault()
-                event.stopPropagation()
+            const state = {...target.dataset}
+            this.navigate(href, state, this.options.updateRouterHistory)
+        })
+    }
 
-                if(window.location.pathname === href || window.location.href === href) {
-                    return
-                }
+    if (this.options.mutationObserver) {
+        this.mutation.observer = new MutationObserver((mutationList, observer) => {
+            this.mutationHandler(mutationList, observer)
+        })
+    }
 
-                const state = {...target.dataset}
-                this.navigate(href, state, this.options.updateRouterHistory)
-            })
+    this.history.push({
+        url:   window.location.href,
+        title: document.title,
+        state: null
+    })
 
-            window.addEventListener('load', () => {
-                this.history.push({
-                    url:   window.location.href,
-                    title: document.title,
-                    state: null
-                })
-
-                if(this.options.preloadLinkSelector) {
-                    this.cacheContainerLinks()
-                }
-            })
-
-            this.mutation.observer = new MutationObserver((mutationList, observer) => {
-                this.mutationHandler(mutationList, observer)
-            })
-
-            break;
+    if(this.options.preloadLinkSelector) {
+        this.cacheContainerLinks()
     }
 }
 

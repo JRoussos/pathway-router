@@ -1,6 +1,6 @@
 {
     "name": "@jroussos/pathway-router",
-    "version": "0.2.6",
+    "version": "0.3.0",
     "type": "module",
     "main": "dist/pathway-router.cjs",
     "types": "dist/pathway.router.d.ts",
@@ -28,8 +28,8 @@
         "router"
     ],
     "devDependencies": {
-        "pathe": "^1.1.2",
-        "vite": "^5.4.10",
-        "vite-plugin-dts": "^4.3.0"
+        "pathe": "^2.0.2",
+        "vite": "^6.0.11",
+        "vite-plugin-dts": "^4.5.0"
     }
 }

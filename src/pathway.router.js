@@ -1,6 +1,6 @@
 /**
  * @typedef CacheState
- * 
+ *
  * @property {string} title
  * @property {string} url
  * @property {HTMLElement} content
@@ -8,39 +8,80 @@
 
 /**
  * @typedef HistoryState
- * 
+ *
  * @property {string} title
  * @property {string} url
- * @property {object} state
+ * @property {Record|null} state
+ */
+
+/**
+ * @callback OnLoadingChangeCallback
+ *
+ * @param {Pathway} router
+ * @param {boolean} state
+ */
+
+/**
+ * @callback OnNavigateCallback
+ *
+ * @param {Pathway} router
+ * @param {string} url
+ */
+
+/**
+ * @callback OnBeforeLeaveCallback
+ *
+ * @param {Pathway} router
+ */
+
+/**
+ * @callback OnBeforeRenderCallback
+ *
+ * @param {Pathway} router
+ */
+
+/**
+ * @callback OnAfterRenderCallback
+ *
+ * @param {Pathway} router
+ */
+
+/**
+ * @callback OnErrorCallback
+ *
+ * @param {Pathway} router
+ * @param {ErrorEvent} error
  */
 
 /**
  * @typedef PathwayOptions
- * 
+ *
  * @property {'router'|'link'|'none'} [mode ]
- * 
+ *
  * @property {string} [containerSelector    ]
  * @property {string} [preloadLinkSelector  ]
  * @property {string} [excludeLinkSelector  ]
- * 
+ *
  * @property {number} [historyStackSize     ]
  * @property {number} [cacheCapacity        ]
  * @property {number} [transitionDuration   ]
- * 
- * @property {function} [onNavigate         ]
- * @property {function} [onLoadingChange    ]
- * @property {function} [onBeforeLeave      ]
- * @property {function} [onBeforeRender     ]
- * @property {function} [onAfterRender      ]
- * @property {function} [onError            ]
- * 
+ *
+ * @property {boolean} [updateRouterHistory ]
+ *
+ * @property {OnNavigateCallback     } [onNavigate      ]
+ * @property {OnLoadingChangeCallback} [onLoadingChange ]
+ * @property {OnBeforeLeaveCallback  } [onBeforeLeave   ]
+ * @property {OnBeforeRenderCallback } [onBeforeRender  ]
+ * @property {OnAfterRenderCallback  } [onAfterRender   ]
+ * @property {OnErrorCallback        } [onError         ]
+ *
  */
 
 "use strict";
 
 /**
- * 
- * @param {PathwayOptions} params 
+ *
+ * @param {PathwayOptions} params
  */
 function Pathway(params) {
     this.options = /** @type {PathwayOptions} */ {
@@ -49,9 +90,9 @@ function Pathway(params) {
         preloadLinkSelector: '[data-preload-link]',
         excludeLinkSelector: '[data-exclude-link]',
         cacheCapacity:       10,
-        historyStackSize:    10, 
+        historyStackSize:    10,
         transitionDuration:  0,
-
+        updateRouterHistory: true,
         onNavigate:          function () {},
         onLoadingChange:     function () {},
         onBeforeLeave:       function () {},
@@ -59,16 +100,18 @@ function Pathway(params) {
         onAfterRender:       function () {},
         onError:             function () {},
     }
-    
+
     Object.assign(this.options, params)
 
-    this.history = []
-    this.cache = new Map()
+    this.history = /** @type {HistoryState[]}*/ []
+    this.cache   = /** @type {Map<string,CacheState>} */ new Map()
 
-    this.isLoading = false,
-    this.container = document.querySelector(this.options.containerSelector) || document.body
+    this.isLoading = /** @type {Boolean} */ false
+    this.container = /** @type {HTMLElement} */ document.querySelector(this.options.containerSelector) || document.body
 
-    this.mutation = {observer: null}
+    this.mutation = /** @type {{observer: MutationObserver|null}}*/ {
+        observer: null
+    }
 
     this.cacheResponse(window.location.href, document)
     this.initEvents()
@@ -76,7 +119,7 @@ function Pathway(params) {
 
 /**
  * Initialize events necessary for navigation
- * 
+ *
  * @private
  */
 Pathway.prototype.initEvents = function () {
@@ -84,15 +127,15 @@ Pathway.prototype.initEvents = function () {
     switch (this.options.mode) {
         case 'none':
             break;
-        
+
         case 'link':
             window.addEventListener('load', () => {
                 if(this.options.preloadLinkSelector) {
                     this.cacheContainerLinks()
                 }
             })
-        break;
-    
+            break;
+
         case 'router': default:
             window.addEventListener('popstate', () => {
                 this.navigate(window.location.href, null, false)
@@ -101,40 +144,37 @@ Pathway.prototype.initEvents = function () {
             window.addEventListener('click', event => {
                 const target = /**@type HTMLAnchorElement */ event.target
                 const href = target.href
-        
+
                 if (target.tagName.toLowerCase() !== 'a' || !href) {
                     return
                 }
-        
+
                 if (target.matches(this.options.excludeLinkSelector)) {
                     return
                 }
-        
+
                 if (href.match('mailto:')) {
                     return
                 }
-        
-                if(window.location.pathname === href || window.location.href === href) {
-                    event.preventDefault()
-                    event.stopPropagation()
-        
-                    return
-                }
-        
+
                 event.preventDefault()
                 event.stopPropagation()
-        
+
+                if(window.location.pathname === href || window.location.href === href) {
+                    return
+                }
+
                 const state = {...target.dataset}
-                this.navigate(href, state, true)
+                this.navigate(href, state, this.options.updateRouterHistory)
             })
-        
+
             window.addEventListener('load', () => {
                 this.history.push({
-                    url: window.location.href,
+                    url:   window.location.href,
                     title: document.title,
                     state: null
                 })
-        
+
                 if(this.options.preloadLinkSelector) {
                     this.cacheContainerLinks()
                 }
@@ -144,14 +184,14 @@ Pathway.prototype.initEvents = function () {
                 this.mutationHandler(mutationList, observer)
             })
 
-        break;
+            break;
     }
 }
 
 /**
- * Searching for all the links that they are marked as cachable and performing for each one
- * a fetch request to store them in cache ahead of time 
- * 
+ * Searching for all the links that they are marked as "cachable" and performing for each one
+ * a fetch request to store them in cache ahead of time
+ *
  * @private
  */
 Pathway.prototype.cacheContainerLinks = function () {
@@ -165,7 +205,7 @@ Pathway.prototype.cacheContainerLinks = function () {
 
         return aPreloadWeight > bPreloadWeight ? 1 : aPreloadWeight < bPreloadWeight ? -1 : 0
     }
-    
+
     Array.from(links).sort(sortWeightedLinks).forEach(link => {
         const href = link.href
 
@@ -177,10 +217,11 @@ Pathway.prototype.cacheContainerLinks = function () {
 
 /**
  * Performing a GET request to the route and passing the response in the cache
- * 
- * @param {string} url 
- * @param {function} callback 
- * 
+ *
+ * @param {string} url
+ * @param {function} [resolve]
+ * @param {function} [reject]
+ *
  * @private
  */
 Pathway.prototype.fetchLink = function (url, resolve, reject) {
@@ -190,10 +231,9 @@ Pathway.prototype.fetchLink = function (url, resolve, reject) {
             "Accept": "text/html; charset=UTF-8"
         })
     })
-     
+
     if (this.cache.has(url) && resolve) {
-        resolve(url)
-        return
+        return resolve(this.__get(url))
     }
 
     this.isLoading = true
@@ -202,40 +242,41 @@ Pathway.prototype.fetchLink = function (url, resolve, reject) {
     const roundCodeNumber = code => {
         return Math.trunc(code/100) * 100
     }
-    
-    window.fetch(request).then(async response => {
-        if (roundCodeNumber(response.status) !== 200) {
-            throw new Error(`(ERROR) Request failed with status code ${response.status}`)
-        }
 
-        const html = await response.text()
-        const parser = new DOMParser()
-    
-        const document = parser.parseFromString(html, 'text/html')
-        this.cacheResponse(url, document)
+    window.fetch(request)
+        .then(async response => {
+            if (roundCodeNumber(response.status) !== 200) {
+                throw new Error(`(ERROR) Request failed with status code ${response.status}`)
+            }
 
-        if (resolve) resolve(url)
-    })
-    .catch(error => {
-        console.warn('(ERROR) Parse document:', error)
-        if (reject) reject(url)
-        
-        this.options.onError(this, error)
-    })
-    .finally(() => {
-        this.isLoading = false
-        this.options.onLoadingChange(this, false)
-    })
+            const html = await response.text()
+            const parser = new DOMParser()
+
+            const document = parser.parseFromString(html, 'text/html')
+            const cached = this.cacheResponse(url, document)
+
+            if (resolve) resolve(cached)
+        })
+        .catch(error => {
+            console.warn('(ERROR) Parse document:', error)
+            if (reject) reject(error)
+
+            this.options.onError(this, error)
+        })
+        .finally(() => {
+            this.isLoading = false
+            this.options.onLoadingChange(this, false)
+        })
 }
 
 /**
  * Performing the actual navigation between the routes.
- * 
- * @param {string} url 
+ *
+ * @param {string} url
  * @param {Object} historyState
- * @param {boolean} updateHistory 
- * 
- * @private 
+ * @param {boolean} updateHistory
+ *
+ * @private
  */
 Pathway.prototype.navigate = function (url, historyState, updateHistory) {
     if (this.isLoading) return
@@ -244,7 +285,7 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory) {
 
     setTimeout(async () => {
         this.options.onBeforeLeave(this)
-        
+
         const contentData = await this.waitFetch(url)
         this.updateDocument(contentData, historyState, updateHistory)
 
@@ -253,35 +294,44 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory) {
 
 /**
  * Update the document with the newly received data and update the router object
- * 
- * @param {CacheState} data 
+ *
+ * @param {CacheState} data
  * @param {Object} historyState
- * @param {boolean} updateHistory 
- * 
+ * @param {boolean} updateHistory
+ *
  * @private
  */
 Pathway.prototype.updateDocument = function (data, historyState, updateHistory) {
-    if (updateHistory) {
+    if (updateHistory)
         window.history.pushState(historyState, null, data.url)
-    }
+
+    else
+        window.history.replaceState(historyState, null, data.url)
 
     this.history.splice(0, this.history.length - this.options.historyStackSize)
-    this.history.push({ url: data.url, title: data.title, state: historyState })
+    this.history.push({
+        url:    data.url,
+        title:  data.title,
+        state:  historyState
+    })
 
     document.title = data.title
 
-    this.mutation.observer.observe(this.container.parentElement, { childList: true })
+    if (this.mutation.observer) {
+        this.mutation.observer.observe(this.container.parentElement, { childList: true })
+    }
+
     this.options.onBeforeRender(this)
-    
+
     this.container.replaceWith(data.content)
 }
 
 /**
  * Checks if the container has been updated and performs resets
- * 
- * @param {MutationRecord[]} mutationList 
- * @param {MutationObserver} observer 
- * 
+ *
+ * @param {MutationRecord[]} mutationList
+ * @param {MutationObserver} observer
+ *
  * @private
  */
 Pathway.prototype.mutationHandler = function (mutationList, observer) {
@@ -303,23 +353,29 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
 
 /**
  * Waiting for the fetch to resolve and the data to be cached
- * 
- * @param {string} url 
- * 
+ *
+ * @param {string} href
+ *
  * @returns {Promise}
- * @private 
+ * @private
  */
 Pathway.prototype.waitFetch = async function (href) {
-    const url = await new Promise((resolve, reject) => this.fetchLink(href, resolve, reject));    
-    return this.__get(url);
+    try {
+        return await new Promise((resolve, reject) => this.fetchLink(href, resolve, reject))
+    }
+    catch (error) {
+        console.warn('(ERROR) Async Fetch:', error)
+    }
 }
 
 /**
  * Cache the fetch response for quick later use
- * 
- * @param {string} url 
- * @param {Document} response 
- * 
+ *
+ * @param {string} url
+ * @param {Document} response
+ *
+ * @returns {CacheState}
+ *
  * @private
  */
 Pathway.prototype.cacheResponse = function (url, response) {
@@ -327,14 +383,14 @@ Pathway.prototype.cacheResponse = function (url, response) {
     const title = response.title
 
     const cacheData = {title, content, url}
-    this.__set(url, cacheData)
+    return this.__set(url, cacheData)
 }
 
 /**
- * Parse the response and get the content of the container 
- * 
- * @param {Document} document 
- * 
+ * Parse the response and get the content of the container
+ *
+ * @param {Document} document
+ *
  * @private
  */
 Pathway.prototype.parseResponse = function (document) {
@@ -345,11 +401,12 @@ Pathway.prototype.parseResponse = function (document) {
  * Retrieve cache state with a given key
  *
  * @param {string} key
+ * @returns {CacheState}
  *
  * @private
  */
 Pathway.prototype.__get = function (key) {
-    if (!this.cache.has(key)) 
+    if (!this.cache.has(key))
         return undefined
 
     let cache_value = this.cache.get(key)
@@ -362,29 +419,36 @@ Pathway.prototype.__get = function (key) {
 
 /**
  * Store a history state to the cache
- * 
- * @param {string} key 
- * @param {CacheState} value 
- * 
+ *
+ * @param {string} key
+ * @param {CacheState} value
+ *
+ * @returns {CacheState}
+ *
  * @private
  */
 Pathway.prototype.__set = function (key, value) {
     this.cache.delete(key)
 
+    if (this.options.cacheCapacity <= 0)
+        return value
+
     if (this.cache.size === this.options.cacheCapacity) {
         this.cache.delete(this.cache.keys().next().value)
         this.cache.set(key, value)
-    } 
-    
+    }
+
     else {
         this.cache.set(key, value)
     }
+
+    return value
 }
 
 /**
  * LRU retrieval method
- * 
- * @returns 
+ *
+ * @returns {[string, {title:string, url:string,content:HTMLElement }]}
  */
 Pathway.prototype.getLeastRecent = function () {
     return Array.from(this.cache)[0]
@@ -392,8 +456,8 @@ Pathway.prototype.getLeastRecent = function () {
 
 /**
  * MRU retrieval method
- * 
- * @returns 
+ *
+ * @returns {[string, {title:string, url:string,content:HTMLElement }]}}
  */
 Pathway.prototype.getMostRecent = function () {
     return Array.from(this.cache)[this.cache.size - 1]

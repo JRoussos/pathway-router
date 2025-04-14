@@ -14,9 +14,6 @@
         "type": "github",
         "url": "https://github.com/JRoussos/pathway-router"
     },
-    "publishConfig": {
-        "registry": "https://npm.pkg.github.com/"
-    },
     "scripts": {
         "dev": "vite --host",
         "build": "vite build",

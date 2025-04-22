@@ -1,5 +1,5 @@
 {
-    "name": "@jroussos/pathway-router",
+    "name": "@roussos/pathway-router",
     "private": false,
     "version": "0.3.6",
     "type": "module",
@@ -18,8 +18,7 @@
     "scripts": {
         "dev": "vite --host",
         "build": "vite build",
-        "prepack": "npm run build",
-        "postpack": "npm version patch"
+        "prepack": "npm run build"
     },
     "keywords": [
         "pathway",

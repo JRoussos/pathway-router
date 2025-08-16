@@ -5,6 +5,7 @@ window.pathway = new Pathway({
     cacheLinkSelector:  null,
     cacheCapacity:      1,
     scrollRestoration:  true,
+    defaultLinkSelector: '[data-preload-link="2"]',
     onNavigate: () => {
         document.querySelector(':root').classList.add('fade')
     },

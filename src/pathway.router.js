@@ -60,6 +60,7 @@
  * @property {string} [containerSelector    ]
  * @property {string} [preloadLinkSelector  ]
  * @property {string} [excludeLinkSelector  ]
+ * @property {string} [defaultLinkSelector  ]
  *
  * @property {number} [historyStackSize     ]
  * @property {number} [cacheCapacity        ]
@@ -89,6 +90,7 @@
 function Pathway(params) {
     this.options = /** @type {PathwayOptions} */ ({
         containerSelector:   'body',
+        defaultLinkSelector: 'a',
         preloadLinkSelector: '[data-preload-link]',
         excludeLinkSelector: '[data-exclude-link]',
         cacheCapacity:       10,
@@ -218,8 +220,7 @@ Pathway.prototype.isUnusableLink = function (element) {
  * @private
  */
 Pathway.prototype.addClickListeners = function () {
-    for (const element of document.querySelectorAll('a')) {
-
+    for (const element of document.querySelectorAll(this.options.defaultLinkSelector)) {
         if (this.isUnusableLink(element)) 
             continue
 

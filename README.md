@@ -10,25 +10,26 @@ A lightweight client-side router that manages navigation, history, caching, and 
 
 Configuration options for the `Pathway` router.
 
-| Option                | Type                      | Description                             |
-| --------------------- | ------------------------- | --------------------------------------- |
-| `containerSelector`   | `string`                  | CSS selector for the content container. |
-| `preloadLinkSelector` | `string`                  | CSS selector for links to preload.      |
-| `excludeLinkSelector` | `string`                  | CSS selector for links to exclude.      |
-| `historyStackSize`    | `number`                  | Maximum number of history entries.      |
-| `cacheCapacity`       | `number`                  | Maximum number of pages cached.         |
-| `transitionDuration`  | `number`                  | Transition duration in milliseconds.    |
-| `updateRouterHistory` | `boolean`                 | Whether to update browser history.      |
-| `popstateEvent`       | `boolean`                 | Enable handling of `popstate` events.   |
-| `clickEvent`          | `boolean`                 | Enable link click interception.         |
-| `mutationObserver`    | `boolean`                 | Enable monitoring DOM mutations.        |
-| `scrollRestoration`   | `boolean`                 | Restore scroll position on navigation.  |
-| `onNavigate`          | `OnNavigateCallback`      | Called before navigation.               |
-| `onLoadingChange`     | `OnLoadingChangeCallback` | Called on loading state changes.        |
-| `onBeforeLeave`       | `OnBeforeLeaveCallback`   | Called before leaving a page.           |
-| `onBeforeRender`      | `OnBeforeRenderCallback`  | Called before rendering content.        |
-| `onAfterRender`       | `OnAfterRenderCallback`   | Called after rendering content.         |
-| `onError`             | `OnErrorCallback`         | Called on navigation/rendering error.   |
+| Option                | Type                      | Default               | Description                             |
+| --------------------- | ------------------------- | --------------------- | --------------------------------------- |
+| `containerSelector`   | `string`                  | 'body'                | CSS selector for the content container. |
+| `defaultLinkSelector` | `string`                  | 'a'                   | CSS selector for valid links.           |
+| `preloadLinkSelector` | `string`                  | '[data-preload-link]' | CSS selector for links to preload.      |
+| `excludeLinkSelector` | `string`                  | '[data-exclude-link]' | CSS selector for links to exclude.      |
+| `historyStackSize`    | `number`                  | 10                    | Maximum number of history entries.      |
+| `cacheCapacity`       | `number`                  | 10                    | Maximum number of pages cached.         |
+| `transitionDuration`  | `number`                  | 0                     | Transition duration in milliseconds.    |
+| `updateRouterHistory` | `boolean`                 | true                  | Whether to update browser history.      |
+| `popstateEvent`       | `boolean`                 | true                  | Enable handling of `popstate` events.   |
+| `clickEvent`          | `boolean`                 | true                  | Enable link click interception.         |
+| `mutationObserver`    | `boolean`                 | true                  | Enable monitoring DOM mutations.        |
+| `scrollRestoration`   | `boolean`                 | false                 | Restore scroll position on navigation.  |
+| `onNavigate`          | `OnNavigateCallback`      | function () {}        | Called before navigation.               |
+| `onLoadingChange`     | `OnLoadingChangeCallback` | function () {}        | Called on loading state changes.        |
+| `onBeforeLeave`       | `OnBeforeLeaveCallback`   | function () {}        | Called before leaving a page.           |
+| `onBeforeRender`      | `OnBeforeRenderCallback`  | function () {}        | Called before rendering content.        |
+| `onAfterRender`       | `OnAfterRenderCallback`   | function () {}        | Called after rendering content.         |
+| `onError`             | `OnErrorCallback`         | function () {}        | Called on navigation/rendering error.   |
 
 
 

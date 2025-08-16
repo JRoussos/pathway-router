@@ -268,7 +268,8 @@ Pathway.prototype.cacheContainerLinks = function () {
         if (this.isUnusableLink(link))
             continue
 
-        this.fetchLink(link.href)
+        if (!this.cache.has(link.href))
+            this.fetchLink(link.href)
     }
 }
 

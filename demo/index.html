@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>INDEX</title>
 
-    <script src="../dist/pathway.router.min.js" defer></script>
+    <script src="../dist/pathway-router.iife.js" defer></script>
     <script src="./index.js" defer></script>
 
     <link rel="stylesheet" type="text/css" href="./style.css" /> 
@@ -15,9 +15,11 @@
 
 <body>
     <header>
-        <a data-preload-link="31" href="/page.html">Go to page</a>
-        <a data-preload-link="2" href="/home.html">Go to home</a>
+        <a data-preload-link="31" href="/demo/page.html">Go to page</a>
+        <a data-preload-link="2" href="/demo/home.html">Go to home</a>
         <a data-preload-link href="mailto:someone@example.com">Send email</a>
+        <a data-preload-link href="/style.css" download="">Download</a>
+        <a data-exclude-link href="/test">Exluded link</a>
     </header>
     <main class="mainContent">
         <div style="width: 100%; display: flex; align-items:center; flex-direction: column; justify-content: center;"> 

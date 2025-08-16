@@ -1,56 +1,57 @@
 /**
  * @typedef CacheState
  *
- * @property {string} title
- * @property {string} url
- * @property {HTMLElement} content
+ * @property {string}       title
+ * @property {string}       url
+ * @property {HTMLElement}  content
  */
 
 /**
  * @typedef HistoryState
  *
- * @property {string} title
- * @property {string} url
- * @property {Record|null} state
+ * @property {string}       title
+ * @property {string}       url
+ * @property {Record|null}  state
+ * @property {number}       scroll
  */
 
 /**
  * @callback OnLoadingChangeCallback
  *
- * @param {Pathway} router
- * @param {boolean} state
+ * @param {Pathway}         router
+ * @param {boolean}         state
  */
 
 /**
  * @callback OnNavigateCallback
  *
- * @param {Pathway} router
- * @param {string} url
+ * @param {Pathway}         router
+ * @param {string}          url
  */
 
 /**
  * @callback OnBeforeLeaveCallback
  *
- * @param {Pathway} router
+ * @param {Pathway}         router
  */
 
 /**
  * @callback OnBeforeRenderCallback
  *
- * @param {Pathway} router
+ * @param {Pathway}         router
  */
 
 /**
  * @callback OnAfterRenderCallback
  *
- * @param {Pathway} router
+ * @param {Pathway}         router
  */
 
 /**
  * @callback OnErrorCallback
  *
- * @param {Pathway} router
- * @param {ErrorEvent} error
+ * @param {Pathway}         router
+ * @param {ErrorEvent}      error
  */
 
 /**
@@ -68,6 +69,7 @@
  * @property {boolean} [popstateEvent       ]
  * @property {boolean} [clickEvent          ]
  * @property {boolean} [mutationObserver    ]
+ * @property {boolean} [scrollRestoration   ]
  *
  * @property {OnNavigateCallback     } [onNavigate      ]
  * @property {OnLoadingChangeCallback} [onLoadingChange ]
@@ -85,7 +87,7 @@
  * @param {PathwayOptions} params
  */
 function Pathway(params) {
-    this.options = /** @type {PathwayOptions} */ {
+    this.options = /** @type {PathwayOptions} */ ({
         containerSelector:   'body',
         preloadLinkSelector: '[data-preload-link]',
         excludeLinkSelector: '[data-exclude-link]',
@@ -96,25 +98,29 @@ function Pathway(params) {
         popstateEvent:       true,
         clickEvent:          true,
         mutationObserver:    true,
+        scrollRestoration:   false,
         onNavigate:          function () {},
         onLoadingChange:     function () {},
         onBeforeLeave:       function () {},
         onBeforeRender:      function () {},
         onAfterRender:       function () {},
         onError:             function () {},
-    }
+    })
 
     Object.assign(this.options, params)
 
-    this.history = /** @type {HistoryState[]}*/ []
-    this.cache   = /** @type {Map<string,CacheState>} */ new Map()
+    this.history        = /** @type {HistoryState[]}*/ ([])
+    this.cache          = /** @type {Map<string,CacheState>} */ (new Map())
 
-    this.isLoading = /** @type {Boolean} */ false
-    this.container = /** @type {HTMLElement} */ document.querySelector(this.options.containerSelector) || document.body
+    this.linkElements   = /** @type {Map<HTMLAnchorElement,Function>} */ (new Map())
+    this.scrolls        = /** @type {Map<string,Number>} */ (new Map())
 
-    this.mutation  = /** @type {{observer: MutationObserver|null}}*/ {
+    this.isLoading      = /** @type {Boolean} */ (false)
+    this.container      = /** @type {HTMLElement} */ (document.querySelector(this.options.containerSelector) || document.body)
+
+    this.mutation       = /** @type {{observer: MutationObserver|null}}*/ ({
         observer: null
-    }
+    })
 
     this.cacheResponse(window.location.href, document)
     this.initEvents()
@@ -129,37 +135,12 @@ Pathway.prototype.initEvents = function () {
 
     if (this.options.popstateEvent) {
         window.addEventListener('popstate', () => {
-            this.navigate(window.location.href, null, false)
+            this.navigate(window.location.href, null, false, -1)
         })
     }
 
     if (this.options.clickEvent) {
-        window.addEventListener('click', event => {
-            const target    = /**@type HTMLAnchorElement */ event.target
-            const href      = target.href
-
-            if (target.tagName.toLowerCase() !== 'a' || !href) {
-                return
-            }
-
-            if (target.matches(this.options.excludeLinkSelector)) {
-                return
-            }
-
-            if (href.match('mailto:')) {
-                return
-            }
-
-            event.preventDefault()
-            event.stopPropagation()
-
-            if(window.location.pathname === href || window.location.href === href) {
-                return
-            }
-
-            const state = {...target.dataset}
-            this.navigate(href, state, this.options.updateRouterHistory)
-        })
+        this.addClickListeners()
     }
 
     if (this.options.mutationObserver) {
@@ -169,14 +150,95 @@ Pathway.prototype.initEvents = function () {
     }
 
     this.history.push({
-        url:   window.location.href,
-        title: document.title,
-        state: null
+        url:    window.location.href,
+        title:  document.title,
+        state:  null,
+        scroll: 0
     })
 
     if(this.options.preloadLinkSelector) {
         this.cacheContainerLinks()
     }
+}
+
+/**
+ * 
+ * @param {PointerEvent} event
+ */
+Pathway.prototype.clickEventCallback = function (event) {
+    if (this.isLoading) {
+        return
+    }
+
+    const target = /**@type HTMLAnchorElement */ event.currentTarget
+    const href   = target.href
+
+    if (!(target instanceof HTMLAnchorElement) || !href) {
+        return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    if(window.location.pathname === href || window.location.href === href) {
+        return
+    }
+
+    const state = {...target.dataset}
+    this.navigate(href, state, this.options.updateRouterHistory)   
+}
+
+/**
+ * Checks if the 'a' element passes the requirements for it to be a valid link.
+ * 
+ * @param {HTMLAnchorElement} element
+ * 
+ * @returns {boolean}
+ * 
+ * @private
+ */
+Pathway.prototype.isUnusableLink = function (element) {
+    if (!element && !(element instanceof HTMLAnchorElement)) 
+        return true
+
+    return (
+        !element.href ||
+        element.matches(this.options.excludeLinkSelector) ||
+        element.hasAttribute('download') ||
+        element.href.startsWith('mailto:') ||
+        element.href.startsWith('tel:') ||
+        element.href.startsWith('javascript:') ||
+        element.href.startsWith('sms:')
+    )
+}
+
+/**
+ * Get all valid 'a' elements and register a click event on them
+ * 
+ * @private
+ */
+Pathway.prototype.addClickListeners = function () {
+    for (const element of document.querySelectorAll('a')) {
+
+        if (this.isUnusableLink(element)) 
+            continue
+
+        const callback = this.clickEventCallback.bind(this)
+        
+        element.removeEventListener('click', this.linkElements.get(element))
+        element.addEventListener('click', callback)
+
+        this.linkElements.set(element, callback)
+    }
+}
+
+/**
+ * Remove click event listeners from all valid 'a' elements (from the linkElements map)
+ * 
+ * @private
+ */
+Pathway.prototype.removeClickListeners = function () {
+    this.linkElements.forEach((callback, element) => element.removeEventListener('click', callback))
 }
 
 /**
@@ -194,16 +256,19 @@ Pathway.prototype.cacheContainerLinks = function () {
         const aPreloadWeight = a.getAttribute(dataAttribute)
         const bPreloadWeight = b.getAttribute(dataAttribute)
 
-        return aPreloadWeight > bPreloadWeight ? 1 : aPreloadWeight < bPreloadWeight ? -1 : 0
+        return aPreloadWeight > bPreloadWeight 
+            ? 1 
+            : aPreloadWeight < bPreloadWeight 
+            ? -1 
+            : 0
     }
 
-    Array.from(links).sort(sortWeightedLinks).forEach(link => {
-        const href = link.href
+    for (const link of Array.from(links).sort(sortWeightedLinks)) {
+        if (this.isUnusableLink(link))
+            continue
 
-        if (!this.cache.has(href) && !href.match('mailto:')) {
-            this.fetchLink(href)
-        }
-    })
+        this.fetchLink(link.href)
+    }
 }
 
 /**
@@ -240,18 +305,22 @@ Pathway.prototype.fetchLink = function (url, resolve, reject) {
                 throw new Error(`(ERROR) Request failed with status code ${response.status}`)
             }
 
-            const html = await response.text()
-            const parser = new DOMParser()
+            const html      = await response.text()
+            const parser    = new DOMParser()
 
-            const document = parser.parseFromString(html, 'text/html')
-            const cached = this.cacheResponse(url, document)
+            const document  = parser.parseFromString(html, 'text/html')
+            const cached    = this.cacheResponse(url, document)
 
-            if (resolve) resolve(cached)
+            if (resolve) {
+                resolve(cached)
+            }
         })
         .catch(error => {
             console.warn('(ERROR) Parse document:', error)
-            if (reject) reject(error)
-
+            if (reject) {
+                reject(error)
+            }
+            
             this.options.onError(this, error)
         })
         .finally(() => {
@@ -263,14 +332,16 @@ Pathway.prototype.fetchLink = function (url, resolve, reject) {
 /**
  * Performing the actual navigation between the routes.
  *
- * @param {string} url
- * @param {Object} historyState
- * @param {boolean} updateHistory
+ * @param {string}      url
+ * @param {Object}      historyState
+ * @param {boolean}     updateHistory
+ * @param {number}      step 
  *
  * @private
  */
-Pathway.prototype.navigate = function (url, historyState, updateHistory) {
-    if (this.isLoading) return
+Pathway.prototype.navigate = function (url, historyState, updateHistory, step=1) {
+    if (this.isLoading) 
+        return
 
     this.options.onNavigate(this, url)
 
@@ -278,7 +349,7 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory) {
         this.options.onBeforeLeave(this)
 
         const contentData = await this.waitFetch(url)
-        this.updateDocument(contentData, historyState, updateHistory)
+        this.updateDocument(contentData, historyState, updateHistory, step)
 
     }, this.options.transitionDuration)
 }
@@ -286,25 +357,28 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory) {
 /**
  * Update the document with the newly received data and update the router object
  *
- * @param {CacheState} data
- * @param {Object} historyState
- * @param {boolean} updateHistory
+ * @param {CacheState}  data
+ * @param {Object}      historyState
+ * @param {boolean}     updateHistory
+ * @param {number}      step 
  *
  * @private
  */
-Pathway.prototype.updateDocument = function (data, historyState, updateHistory) {
-    if (updateHistory)
+Pathway.prototype.updateDocument = function (data, historyState, updateHistory, step=1) {
+    if (updateHistory) {
         window.history.pushState(historyState, null, data.url)
+
+        this.history.splice(0, this.history.length - this.options.historyStackSize)
+        this.history.push({
+            url:    data.url,
+            title:  data.title,
+            state:  historyState,
+            scroll: window.scrollY || document.documentElement.scrollTop
+        })
+    }
 
     else
         window.history.replaceState(historyState, null, data.url)
-
-    this.history.splice(0, this.history.length - this.options.historyStackSize)
-    this.history.push({
-        url:    data.url,
-        title:  data.title,
-        state:  historyState
-    })
 
     document.title = data.title
 
@@ -315,6 +389,14 @@ Pathway.prototype.updateDocument = function (data, historyState, updateHistory) 
     this.options.onBeforeRender(this)
 
     this.container.replaceWith(data.content)
+
+    if (this.options.scrollRestoration) {
+        const scrollPosition = step < 0 
+            ? this.history[this.history.length + step]?.scroll ?? 0
+            : 0
+            
+        window.scrollTo({top: scrollPosition, behavior: 'instant'})
+    }
 }
 
 /**
@@ -327,13 +409,23 @@ Pathway.prototype.updateDocument = function (data, historyState, updateHistory) 
  */
 Pathway.prototype.mutationHandler = function (mutationList, observer) {
     for (const mutation of mutationList) {
-        if (mutation.type !== "childList") continue
+        
+        if (mutation.type !== "childList") 
+            continue
+
+        if (mutation.addedNodes.length <= 0) 
+            continue
 
         this.container = mutation.addedNodes[0]
+        
         this.options.onAfterRender(this)
 
         if (this.options.preloadLinkSelector) {
             this.cacheContainerLinks()
+        }
+
+        if (this.options.clickEvent) {
+            this.addClickListeners()
         }
 
         observer.disconnect()

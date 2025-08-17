@@ -351,7 +351,9 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory, step=1)
         this.options.onBeforeLeave(this)
 
         const contentData = await this.waitFetch(url)
-        this.updateDocument(contentData, historyState, updateHistory, step)
+
+        contentData.content['pathway_last_step'] = step
+        this.updateDocument(contentData, historyState, updateHistory)
 
     }, this.options.transitionDuration)
 }
@@ -362,11 +364,10 @@ Pathway.prototype.navigate = function (url, historyState, updateHistory, step=1)
  * @param {CacheState}  data
  * @param {Object}      historyState
  * @param {boolean}     updateHistory
- * @param {number}      step 
  *
  * @private
  */
-Pathway.prototype.updateDocument = function (data, historyState, updateHistory, step=1) {
+Pathway.prototype.updateDocument = function (data, historyState, updateHistory) {
     if (updateHistory) {
         window.history.pushState(historyState, null, data.url)
 
@@ -389,16 +390,7 @@ Pathway.prototype.updateDocument = function (data, historyState, updateHistory, 
     }
 
     this.options.onBeforeRender(this)
-
     this.container.replaceWith(data.content)
-
-    if (this.options.scrollRestoration) {
-        const scrollPosition = step < 0 
-            ? this.history[this.history.length + step]?.scroll ?? 0
-            : 0
-            
-        window.scrollTo({top: scrollPosition, behavior: 'instant'})
-    }
 }
 
 /**
@@ -422,6 +414,14 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
         
         this.options.onAfterRender(this)
 
+        if (this.options.scrollRestoration) {
+            const scrollPosition = (this.container.hasOwnProperty('pathway_last_step') && !isNaN(this.container.pathway_last_step) && this.container.pathway_last_step < 0)
+                ? this.history[this.history.length + this.container.pathway_last_step]?.scroll ?? 0
+                : 0
+                
+            window.scrollTo({top: scrollPosition, behavior: 'instant'})
+        }
+
         if (this.options.preloadLinkSelector) {
             this.cacheContainerLinks()
         }
@@ -441,7 +441,7 @@ Pathway.prototype.mutationHandler = function (mutationList, observer) {
  *
  * @param {string} href
  *
- * @returns {Promise}
+ * @returns {Promise<CacheState>}
  * @private
  */
 Pathway.prototype.waitFetch = async function (href) {
